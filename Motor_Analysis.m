@@ -4,7 +4,7 @@ clc;
 % RC Car Specs
 Size = 1/10;    % RC Car Scale
 GR = 5;      % Gear ratio motor shaft to wheel shaft (N2/N1)
-m_car = 5.0;        % RC Car mass, KG
+m_car = 3.0;        % RC Car mass, KG
 
 % Battery Specs
 V_cell_nom = 3.6;       % Nominal cell voltage, V
