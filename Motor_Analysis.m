@@ -1,12 +1,19 @@
 clear;
 clc;
 
-% RC Car Specs
+%% RC Car Specs
 Size = 1/10;    % RC Car Scale
 GR = 5;      % Gear ratio motor shaft to wheel shaft (N2/N1)
-m_car = 3.0;        % RC Car mass, KG
+R_wheel_supra = 0.33;           % Full size car tire radius, m
+R_wheel = R_wheel_supra*Size;   % RC Car tire radius, m
+C_wheel = pi*2*R_wheel;         % RC Car tire circumference, m
+width_wheel = 0.254 * Size;     % RC car tire width, m
 
-% Battery Specs
+wheelbase_supra = 2.74;         % Full size car wheelbase, m https://toyotagazooracing.com/gr/supra/specs/
+wheelbase = wheelbase_supra * Size; % RC car wheelbase
+track = wheelbase / 1.55; % RC car track, m
+
+%% Battery Specs
 V_cell_nom = 3.6;       % Nominal cell voltage, V
 V_cell_max = 4.2;       % Max cell voltage, V
 I_cell_rated = 25;      % Cell continuous discharge rating (max) A
@@ -20,8 +27,8 @@ m_pack = pack_factor * m_cell * P_count * S_count; % Total pack mass, kg
 I_pack_max = I_cell_rated * P_count;    % Pack continuous discharge current (max) A
 
 
-% Motor Specs
-m_motor = 0.030;        % Motor Mass, kg
+%% Motor Specs
+m_motor = 0.300;        % Motor Mass, kg
 kV = 3500;              % kV Rating, RPM/V
 V_motor_max = 15;             % Max Voltage
 I_motor_max = 140;            % Max Current
@@ -32,9 +39,6 @@ T_m_max = P_max/W_m_max;    % Motor max torque
 
 % Calculate motor speed needed for max speed
 v_car_req = 30;                 % Minimum top speed requirement, m/s
-R_wheel_supra = 0.33;           % Full size car tire radius, m
-R_wheel = R_wheel_supra*Size;   % RC Car tire radius, m
-C_wheel = pi*2*R_wheel;         % RC Car tire circumference, m
 W_wheel_req = v_car_req / C_wheel * 2 * pi; % Minimum wheel speed requirement, Rad/s
 W_motor_req = W_wheel_req*GR; % Min motor speed to meet top speed requirement w/ gear ratio, Rad/s
 
@@ -44,7 +48,7 @@ c_rr = 0.03;                    % Rolling resistance coefficient
 F_rr = c_rr * m_car * 9.81;     % Rolling resistance force, N
 %}
 
-% 3D Plot V_max as f(s_count, GR)
+%% 3D Plot V_max as f(s_count, GR)
 
 x=1;
 for kV = 1000:1:3000
@@ -72,29 +76,53 @@ mesh(plane);
 
 
 
-% Mass model
+%% Mass model
 
     % wheels
-    width_wheel = 0.254 * Size;     % RC car tire width, m
     volume_wheel = pi()*(R_wheel^2)*width_wheel;    %RC car wheel volume, m^3, assume solid cylinder
     rho_rubber =  920;                              %Natural rubber density kg/m^3, https://designerdata.nl/materials/natural-rubber
     m_wheels = volume_wheel * rho_rubber;
 
+    % Electronics
+    m_electronics = m_motor * 0.5;
+
+    % Calculate chassis thickness
+    
+    thick_new = 0.0001;     % Chassis starting thickness, m
+    SF = 0;                     % Safety factor
+    SF_tres = 1.2;              % Safety factor treshold
+    G_load = 5.0;               % Vertical G load factor for chassis sizing
+    rho_AL = 2700;              % Aluminum density, kg/m^3 https://www.matweb.com/search/datasheet.aspx?MatGUID=b8d536e0b9b54bd7b69e4124d8f1d20a&ckck=1
+    yield_AL = 276*10^6;             % Aluminum yield stenght, MPa https://www.matweb.com/search/datasheet.aspx?MatGUID=b8d536e0b9b54bd7b69e4124d8f1d20a&ckck=1
+
+
+    while SF < SF_tres  %safety factor
+        
+        thick_chassis = thick_new;
+
+        m_chassis = wheelbase * track * thick_chassis * rho_AL;
+        m_car = m_pack + m_motor + m_chassis + (4*m_wheels) + m_electronics;
+
+        M_max = G_load*m_car*9.81*wheelbase/8;             % Max bending moment, Nm 
+        V_max = G_load*m_car*9.81/2;                       % Max shear force, N
+
+        I_chassis = track*(thick_chassis^3)/12;
+        Bend_stress = M_max * (wheelbase/2) / I_chassis;
+        SF_M = yield_AL / Bend_stress;
+
+        Shear_stress = V_max / (track * thick_chassis);
+        SF_V = yield_AL / Shear_stress;
+
+        SF = min(SF_M, SF_V);
+
+        thick_new = thick_chassis + 0.0001;
+
+    end
 
 
 
 
-
-%m_car = m_pack + m_motor + m_chassis + (4*m_wheels) + m_electronics;
-
-
-
-
-
-
-
-
-% Calculate Acceleration Time
+%% Calculate Acceleration Time
 
 if I_pack_max <= I_motor_max
     P_motor = V_pack_nom * I_pack_max;
