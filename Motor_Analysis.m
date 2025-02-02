@@ -11,15 +11,17 @@ V_cell_nom = 3.6;       % Nominal cell voltage, V
 V_cell_max = 4.2;       % Max cell voltage, V
 I_cell_rated = 25;      % Cell continuous discharge rating (max) A
 m_cell = 0.043;         % Cell mass, kg
-P_count = 2;            % Pack P-Count
-S_count = 4;             % Pacl S-Count
+P_count = 8;            % Pack P-Count
+S_count = 3;            % Pacl S-Count
+pack_factor = 1.6;      % Battery pack packing factor, https://www.batterydesign.net/cell-to-pack-mass-ratio/
 
 V_pack_nom = V_cell_nom *S_count; % Nominal Pack Volatage, V
-m_pack = m_cell * P_count * S_count; % Total pack mass, kg
+m_pack = pack_factor * m_cell * P_count * S_count; % Total pack mass, kg
 I_pack_max = I_cell_rated * P_count;    % Pack continuous discharge current (max) A
 
 
 % Motor Specs
+m_motor = 0.030;        % Motor Mass, kg
 kV = 3500;              % kV Rating, RPM/V
 V_motor_max = 15;             % Max Voltage
 I_motor_max = 140;            % Max Current
@@ -69,9 +71,38 @@ hold on
 mesh(plane);
 
 
-% 3D Plot for Acceleration
 
-P_motor = V_pack_nom * I_pack_max;
+% Mass model
+
+    % wheels
+    width_wheel = 0.254 * Size;     % RC car tire width, m
+    volume_wheel = pi()*(R_wheel^2)*width_wheel;    %RC car wheel volume, m^3, assume solid cylinder
+    rho_rubber =  920;                              %Natural rubber density kg/m^3, https://designerdata.nl/materials/natural-rubber
+    m_wheels = volume_wheel * rho_rubber;
+
+
+
+
+
+
+%m_car = m_pack + m_motor + m_chassis + (4*m_wheels) + m_electronics;
+
+
+
+
+
+
+
+
+% Calculate Acceleration Time
+
+if I_pack_max <= I_motor_max
+    P_motor = V_pack_nom * I_pack_max;
+else
+    display('Current limited by motor');
+    P_motor = V_pack_nom * I_motor_max;
+end
+
 T_m = P_motor / w_motor;
 
 F_fric = T_m * GR / R_wheel; % Net friction propulsion force from car tire to ground, N
