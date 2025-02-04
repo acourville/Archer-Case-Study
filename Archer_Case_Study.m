@@ -2,7 +2,7 @@ clear;
 clc;
 
 %% RC Car Specs
-Size = 1/10;    % RC Car Scale
+Size = 1/16;    % RC Car Scale
 GR = 5;      % Gear ratio motor shaft to wheel shaft (N2/N1)
 R_wheel_supra = 0.33;           % Full size car tire radius, m
 R_wheel = R_wheel_supra*Size;   % RC Car tire radius, m
@@ -13,35 +13,14 @@ wheelbase_supra = 2.74;         % Full size car wheelbase, m https://toyotagazoo
 wheelbase = wheelbase_supra * Size; % RC car wheelbase
 track = wheelbase / 1.55; % RC car track, m
 
+% Calculate wheel speed needed for max speed
+v_car_req = 30;                 % Minimum top speed requirement, m/s
+W_wheel_req = v_car_req / C_wheel * 2 * pi; % Minimum wheel speed requirement, Rad/s
+
 %% Battery Specs
 V_cell_nom = 3.6;       % Nominal cell voltage, V
 V_cell_max = 4.2;       % Max cell voltage, V
 V_cell_min = 2.5;       % Min cell voltage, V
-I_cell_rated = 25;      % Cell continuous discharge rating (max) A
-m_cell = 0.043;         % Cell mass, kg
-P_count = 8;            % Pack P-Count
-S_count = 3;            % Pacl S-Count
-pack_factor = 1.6;      % Battery pack packing factor, https://www.batterydesign.net/cell-to-pack-mass-ratio/
-
-V_pack_nom = V_cell_nom *S_count; % Nominal Pack Volatage, V
-m_pack = pack_factor * m_cell * P_count * S_count; % Total pack mass, kg
-I_pack_max = I_cell_rated * P_count;    % Pack continuous discharge current (max) A
-
-
-%% Motor Specs
-m_motor = 0.300;        % Motor Mass, kg
-kV = 3500;              % kV Rating, RPM/V
-V_motor_max = 15;             % Max Voltage
-I_motor_max = 140;            % Max Current
-P_max = V_motor_max*I_motor_max;    % Max Power
-W_m_max = kV*V_motor_max/60*2*pi; % Motor max speed, Rad/s
-T_m_max = P_max/W_m_max;    % Motor max torque
-
-
-% Calculate motor speed needed for max speed
-v_car_req = 30;                 % Minimum top speed requirement, m/s
-W_wheel_req = v_car_req / C_wheel * 2 * pi; % Minimum wheel speed requirement, Rad/s
-W_motor_req = W_wheel_req*GR; % Min motor speed to meet top speed requirement w/ gear ratio, Rad/s
 
 
 %% 2D Plots for motor max speed
@@ -59,9 +38,7 @@ for motor_option = 1:1:10
     w_motor = motor_specs(motor_option,2) * V_cell_min*motor_specs(motor_option,5)/60*2*pi;      % Motor speed, Rad/s
     w_wheel = w_motor * 1/GR_opt(motor_option);                 % Wheel speed, Rad/s
     V_car_opt(motor_option) = C_wheel * w_wheel / (2*pi);     % Car speed, m/
-     
-
-
+ 
 end
 
 close all
@@ -85,9 +62,6 @@ legend('Motor 1','Motor 2', 'Motor 3', 'Motor 4', 'Motor 5', 'Motor 6', 'Motor 7
     rho_rubber =  920;                              %Natural rubber density kg/m^3, https://designerdata.nl/materials/natural-rubber
     m_wheels = volume_wheel * rho_rubber;
 
-    % Electronics
-    m_electronics = m_motor * 0.5;
-
     % solar panel mass
     m_solar = wheelbase*track*15;
 
@@ -104,24 +78,29 @@ legend('Motor 1','Motor 2', 'Motor 3', 'Motor 4', 'Motor 5', 'Motor 6', 'Motor 7
         thick_new = 0.0001;     % Chassis starting thickness, m
         m_pack = battery_spec(option,11);   % Battery pack mass, kg
 
+        m_motor = motor_specs(option,6);
+
+        % Electronics
+        m_electronics = m_motor * 0.5;
+
         while SF < SF_tres  %safety factor
             
             thick_chassis = thick_new;
     
-            m_chassis = wheelbase * track * thick_chassis * rho_AL;
-            m_car = m_pack + m_motor + m_chassis + (4*m_wheels) + m_electronics + m_solar;
+            m_chassis(option) = wheelbase * track * thick_chassis * rho_AL;
+            m_car = m_pack + m_motor + m_chassis(option) + (4*m_wheels) + m_electronics + m_solar;
     
             M_max = G_load*m_car*9.81*wheelbase/8;             % Max bending moment, Nm 
             V_max = G_load*m_car*9.81/2;                       % Max shear force, N
     
             I_chassis = track*(thick_chassis^3)/12;
-            Bend_stress = M_max * (wheelbase/2) / I_chassis;
-            SF_M = yield_AL / Bend_stress;
+            Bend_stress = M_max * (wheelbase/2) / I_chassis;    % Chassis max stress from bending, Pa
+            SF_M = yield_AL / Bend_stress;      % Safety factor aggainst bending yield
     
             Shear_stress = V_max / (track * thick_chassis);
-            SF_V = yield_AL / Shear_stress;
+            SF_V = yield_AL / Shear_stress;       % Safety factor aggainst shear
     
-            SF = min(SF_M, SF_V);
+            SF = min(SF_M, SF_V);       % Limiting safety factor
     
             thick_new = thick_chassis + 0.0001;
         end
@@ -137,22 +116,51 @@ legend('Motor 1','Motor 2', 'Motor 3', 'Motor 4', 'Motor 5', 'Motor 6', 'Motor 7
 %% Calculate Acceleration Time
  for option = 1:1:10
     if battery_spec(option,3) <= battery_spec(option,2)
-        P_motor(option) = battery_spec(option,6)*3.6 * battery_spec(option,3);
+        P_motor(option) = battery_spec(option,6)*3.6 * battery_spec(option,3);  % Motor power, watts
     else
         display('Current limited by motor');
-        P_motor(option) = battery_spec(option,6)*3.6 * battery_spec(option,2);
+        P_motor(option) = battery_spec(option,6)*3.6 * battery_spec(option,2); % Motor power, watts
     end
     W_motor_req = W_wheel_req*GR_opt(option); % Min motor speed to meet top speed requirement w/ gear ratio, Rad/s
-    T_m = P_motor(option) / W_motor_req;
+    T_m = P_motor(option) / W_motor_req;        % Motor torque, n-m
     
     F_fric = T_m * GR_opt(option) / R_wheel; % Net friction propulsion force from car tire to ground, N
     
     a_car(option) = F_fric / Chassis_opt(option, 3);     % Car acceleration m/s^2, assuming no slipping, no drag, no rolling resistance
     t_vmax(option) = v_car_req / a_car(option); % Acceleration time from zero to the requiremd max speed
+    t_vmax(option) = round(t_vmax(option),1);   % Round to 1 decimal point
 
  end
-%% Solar load
 
-A_solar = wheelbase * track;        % Solar area, m^2
-Irradiance = 500;                   % Absorbed solar irradiance, w/m^2
-P_solar = A_solar * Irradiance;     % Solar power, W
+figure;
+b=bar(t_vmax);
+title('Acceleration Times - 1/16 Scale')
+xlabel('Motor Option')
+ylabel('Time to V req, seconds')
+ylim([0 100])
+b(1).Labels = b(1).YData;
+
+
+%% Cost Model
+
+for option = 1:1:10
+    
+    Cost(option, 1) = battery_spec(option, 13);      % Battery cost
+    Cost(option, 2) = motor_specs(option,8);        % motor cost
+    Cost(option, 3) = 0.5 * Cost(option, 2);          % electronics cost
+    Cost(option, 4) = 4 * m_wheels * 2 * 2;            % wheel cost
+    Cost(option, 5) = m_chassis(option) * 2.6 * 2;    % chassis cost
+    Cost(option, 6) = wheelbase * track * 100 * 1.5;      % solar cost
+
+    Cost(option, 7) = Cost(option, 1) + Cost(option, 2) + Cost(option, 3) + Cost(option, 4) + Cost(option, 5) + Cost(option, 6); % Total vehicle cost
+    Cost(option, 7) = round(Cost(option, 7),2);
+
+end
+
+figure;
+b=bar(Cost(:,7));
+title('Vehicle Cost Options - 1/8 Scale')
+xlabel('Motor Option')
+ylabel('Vehicle Cost $USD')
+ylim([0 180])
+b(1).Labels = b(1).YData;
