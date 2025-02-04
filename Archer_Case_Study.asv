@@ -137,18 +137,18 @@ legend('Motor 1','Motor 2', 'Motor 3', 'Motor 4', 'Motor 5', 'Motor 6', 'Motor 7
 %% Calculate Acceleration Time
  for option = 1:1:10
     if battery_spec(option,3) <= battery_spec(option,2)
-        P_motor(option) = battery_spec(option,6)*3.6 * battery_spec(option,3);
+        P_motor = battery_spec(option,6)*3.6 * battery_spec(option,3);
     else
         display('Current limited by motor');
-        P_motor(option) = battery_spec(option,6)*3.6 * battery_spec(option,2);
+        P_motor = battery_spec(option,6)*3.6 * battery_spec(option,2);
     end
-    W_motor_req = W_wheel_req*GR_opt(option); % Min motor speed to meet top speed requirement w/ gear ratio, Rad/s
-    T_m = P_motor(option) / W_motor_req;
     
-    F_fric = T_m * GR_opt(option) / R_wheel; % Net friction propulsion force from car tire to ground, N
+    T_m = P_motor / w_motor;
     
-    a_car(option) = F_fric / Chassis_opt(option, 3);     % Car acceleration m/s^2, assuming no slipping, no drag, no rolling resistance
-    t_vmax(option) = v_car_req / a_car(option); % Acceleration time from zero to the requiremd max speed
+    F_fric = T_m * GR / R_wheel; % Net friction propulsion force from car tire to ground, N
+    
+    a_car = F_fric / Chassis_opt;     % Car acceleration m/s^2, assuming no slipping, no drag, no rolling resistance
+    t_vmax(option) = v_car_req / a_car; % Acceleration time from zero to the requiremd max speed
 
  end
 %% Solar load
