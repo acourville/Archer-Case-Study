@@ -2,7 +2,9 @@ clear;
 clc;
 
 %% Sim Parameters
-simtime = 3600;
+simtime = 86400;
+
+simname = 'Archer_battery_sim';
 
 %% Import Data
 battery_spec = readmatrix('Archer Battery Options.csv');
@@ -10,11 +12,11 @@ P28A_spec = readmatrix('P28A Cell.csv');
 P30B_spec = readmatrix('P30B Cell.csv');
 
 SOC_max = 0.85;
-SOC_min = 0.001;
+SOC_min = 0.0;
 
 
 %% RC Car Specs
-Size = 1/8;    % RC Car Scale
+Size = 1/16;    % RC Car Scale
 wheelbase_supra = 2.74;         % Full size car wheelbase, m https://toyotagazooracing.com/gr/supra/specs/
 wheelbase = wheelbase_supra * Size; % RC car wheelbase
 track = wheelbase / 1.55; % RC car track, m
@@ -29,7 +31,7 @@ Ki   = 10;  % Integral gain CV controller
 Kaw  = 1;   % Antiwindup gain CV controller
 Ts   = 1;   % Sample time (s)
 
-for option = 2
+for option = 1
 vMax = 4.2 * battery_spec(option, 6); % Maximum cell voltage
 
     % Setup cell parameters
@@ -65,11 +67,10 @@ vMax = 4.2 * battery_spec(option, 6); % Maximum cell voltage
 
     t_cycle = 600;  %Cycle duration, seconds
     t_100 = 0.5 * t_cycle;
-    t_50 = 0.25 * t_cycle;
-    t_0 =  0.25 * t_cycle;
-    
-    
-    run('Archer_battery_sim');
-
+    t_50 = 0.3 * t_cycle;
+    t_0 =  0.2 * t_cycle;
+        
+    out = sim(simname);
+    disp('Sim Complete')
 
 end
